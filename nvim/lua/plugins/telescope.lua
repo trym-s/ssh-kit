@@ -1,5 +1,6 @@
 return {
   "nvim-telescope/telescope.nvim",
+  version = "0.1.8", -- stable tag: supports nvim >= 0.9 (master now requires 0.11)
   cmd = "Telescope",
   dependencies = {
     "nvim-lua/plenary.nvim",
