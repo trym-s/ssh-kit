@@ -15,10 +15,12 @@ Portable dev environment for SSH-accessible servers. Clone once, run
    zsh-autosuggestions zsh-syntax-highlighting fzf bat eza zoxide`
    (each installed individually; ones missing on older releases are warned, not fatal).
 2. Bridges Debian's `batcat` → `bat` in `~/.local/bin`.
-3. Git-clones the non-apt zsh plugins into `~/.local/share/zsh/plugins/`:
+3. For `eza`/`yazi` (often not in apt), downloads the latest prebuilt binary
+   from GitHub releases into `~/.local/bin` (x86_64 / aarch64; yazi needs `unzip`).
+4. Git-clones the non-apt zsh plugins into `~/.local/share/zsh/plugins/`:
    `powerlevel10k`, `fzf-tab`, `zsh-history-substring-search`.
-4. Symlinks configs into place (see Layout).
-5. Sets zsh as the login shell (`chsh`).
+5. Symlinks configs into place (see Layout).
+6. Sets zsh as the login shell (`chsh`).
 
 Then open a new shell (or `exec zsh`). First `nvim` launch installs plugins +
 treesitter parsers automatically.

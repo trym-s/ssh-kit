@@ -44,7 +44,7 @@ if command -v apt-get >/dev/null 2>&1; then
 	# neovim + build deps, zsh + shell tooling. Installed one-by-one so a
 	# package missing on older releases (eza/zoxide) doesn't abort the rest.
 	for pkg in \
-		neovim git ripgrep build-essential curl less \
+		neovim git ripgrep build-essential curl less unzip \
 		zsh zsh-autosuggestions zsh-syntax-highlighting \
 		fzf bat eza zoxide; do
 		if $SUDO apt-get install -y -qq "$pkg" >/dev/null 2>&1; then
@@ -62,6 +62,54 @@ if ! command -v bat >/dev/null 2>&1 && command -v batcat >/dev/null 2>&1; then
 	mkdir -p "$HOME/.local/bin"
 	ln -sfn "$(command -v batcat)" "$HOME/.local/bin/bat"
 	log "linked bat -> batcat in ~/.local/bin"
+fi
+
+# ============================================================================
+# 1b. eza / yazi — not in older apt; grab prebuilt binaries into ~/.local/bin.
+#     Uses GitHub's /releases/latest/download (version-agnostic).
+# ============================================================================
+case "$(uname -m)" in
+	x86_64|amd64)  ARCH=x86_64 ;;
+	aarch64|arm64) ARCH=aarch64 ;;
+	*)             ARCH="" ;;
+esac
+TARGET="${ARCH}-unknown-linux-gnu"
+mkdir -p "$HOME/.local/bin"
+
+if [ -z "$ARCH" ]; then
+	warn "unknown CPU arch $(uname -m) — skipping eza/yazi binary install."
+elif ! command -v curl >/dev/null 2>&1; then
+	warn "curl missing — skipping eza/yazi binary install."
+else
+	# eza: a .tar.gz holding a single binary.
+	if ! command -v eza >/dev/null 2>&1; then
+		log "installing eza (prebuilt $TARGET binary)"
+		if curl -fsSL "https://github.com/eza-community/eza/releases/latest/download/eza_${TARGET}.tar.gz" \
+			| tar xz -C "$HOME/.local/bin" 2>/dev/null; then
+			chmod +x "$HOME/.local/bin/eza" 2>/dev/null || true
+			echo "  ok: eza"
+		else
+			warn "eza download failed — 'ls' aliases will fall back to plain ls."
+		fi
+	fi
+
+	# yazi: a .zip holding yazi + ya inside a versioned dir (needs unzip).
+	if ! command -v yazi >/dev/null 2>&1; then
+		if command -v unzip >/dev/null 2>&1; then
+			log "installing yazi (prebuilt $TARGET binary)"
+			ytmp="$(mktemp -d)"
+			if curl -fsSL "https://github.com/sxyazi/yazi/releases/latest/download/yazi-${TARGET}.zip" -o "$ytmp/yazi.zip" \
+				&& unzip -q "$ytmp/yazi.zip" -d "$ytmp"; then
+				install -m755 "$ytmp"/yazi-*/yazi "$HOME/.local/bin/yazi" && echo "  ok: yazi" || warn "yazi binary not found in archive."
+				install -m755 "$ytmp"/yazi-*/ya   "$HOME/.local/bin/ya" 2>/dev/null || true
+			else
+				warn "yazi download failed — the 'y' file-manager function will be inactive."
+			fi
+			rm -rf "$ytmp"
+		else
+			warn "unzip missing — skipping yazi (install unzip, or 'cargo install --locked yazi-fs yazi-cli')."
+		fi
+	fi
 fi
 
 # ============================================================================
