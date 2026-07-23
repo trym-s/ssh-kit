@@ -1,0 +1,247 @@
+[[ -o interactive ]] || return
+
+HISTFILE="$HOME/.zsh_history"
+HISTSIZE=10000
+SAVEHIST=10000
+setopt append_history share_history hist_ignore_dups hist_ignore_space
+setopt hist_reduce_blanks inc_append_history
+setopt auto_cd auto_pushd pushd_ignore_dups
+setopt prompt_subst
+
+autoload -Uz compinit
+# Docker Desktop exposes this as a WSL-mounted symlink.  When Docker Desktop
+# is stopped the target disappears, which otherwise makes compinit error.
+if [[ -L /usr/share/zsh/vendor-completions/_docker && ! -e /usr/share/zsh/vendor-completions/_docker ]]; then
+  fpath=( ${fpath:#/usr/share/zsh/vendor-completions} )
+fi
+compinit -d "$HOME/.cache/zcompdump"
+
+zmodload zsh/complist
+zstyle ':completion:*' menu select
+zstyle ':completion:*' matcher-list 'm:{a-zA-Z}={A-Za-z}'
+zstyle ':completion:*' list-colors "${(s.:.)LS_COLORS}"
+zstyle ':completion:*' group-name ''
+zstyle ':completion:*:descriptions' format '[%d]'
+zstyle ':completion:*' verbose yes
+bindkey -M menuselect '^[[Z' reverse-menu-complete
+
+[[ -r "$HOME/.local/share/zsh/plugins/fzf-tab/fzf-tab.plugin.zsh" ]] && source "$HOME/.local/share/zsh/plugins/fzf-tab/fzf-tab.plugin.zsh"
+zstyle ':fzf-tab:complete:cd:*' fzf-preview 'eza -1 --color=always --icons=auto $realpath 2>/dev/null || ls -1 --color=always $realpath 2>/dev/null'
+zstyle ':fzf-tab:complete:*:*' fzf-preview '[[ -f $realpath ]] && (bat --color=always --style=numbers --line-range=:200 -- $realpath 2>/dev/null || cat -- $realpath) || (eza -1 --color=always --icons=auto $realpath 2>/dev/null || ls -1 --color=always $realpath 2>/dev/null)'
+zstyle ':fzf-tab:*' switch-group '<' '>'
+
+export EDITOR=nvim
+export VISUAL=nvim
+export PAGER=less
+export LESS='-R'
+export BAT_THEME=TwoDark
+export CLICOLOR=1
+export COLORTERM=truecolor
+export FORCE_COLOR=1
+export SYSTEMD_COLORS=1
+export GREP_COLORS='ms=01;38;2;255;255;255:mc=01;38;2;255;255;255:sl=:cx=:fn=38;2;95;255;255:ln=38;2;255;209;102:bn=38;2;185;128;255:se=38;2;110;122;145'
+export EZA_COLORS='di=38;2;95;255;255:ex=38;2;92;255;176:fi=38;2;234;242;255:ln=38;2;140;200;255:or=38;2;255;77;109:*.md=38;2;92;255;176:*.json=38;2;255;209;102:*.yaml=38;2;215;175;255:*.yml=38;2;215;175;255:*.toml=38;2;215;175;255:*.sh=38;2;92;255;176:*.py=38;2;255;209;102:*.js=38;2;255;209;102:*.ts=38;2;140;200;255'
+export FZF_DEFAULT_OPTS='--color=fg:#d7d7d7,bg:#08090a,hl:#e11d48,fg+:#ffffff,bg+:#1f2328,hl+:#ff4d6d,info:#f9d56e,prompt:#a6d189,pointer:#e11d48,marker:#89dceb,spinner:#f5a6c8,header:#858585,border:#2a2f35'
+export GOPATH="$HOME/.local/share/go"
+export PATH="$HOME/.local/bin:$GOPATH/bin:$PATH"
+
+command -v fnm >/dev/null && eval "$(fnm env --use-on-cd --shell zsh)"
+
+alias ls='eza --group-directories-first --icons=auto'
+alias ll='eza -lah --group-directories-first --icons=auto'
+alias la='eza -la --group-directories-first --icons=auto'
+alias grep='grep --color=auto'
+alias diff='diff --color=auto'
+alias ip='ip -color=auto'
+alias v='nvim'
+alias n='nvim'
+alias ..='cd ..'
+alias ...='cd ../..'
+# Arch-only pacman helpers — defined only on hosts that actually have pacman.
+if command -v pacman >/dev/null; then
+  __pacman_clear_stale_lock() {
+    local lock=/var/lib/pacman/db.lck
+
+    [[ -e "$lock" ]] || return 0
+
+    if sudo fuser "$lock" >/dev/null 2>&1 || sudo lsof "$lock" >/dev/null 2>&1; then
+      echo "pacman database lock is active: $lock" >&2
+      echo "Another package manager appears to be running; not removing the lock." >&2
+      return 1
+    fi
+
+    echo "Removing stale pacman database lock: $lock" >&2
+    sudo rm -f "$lock"
+  }
+
+  sp() {
+    __pacman_clear_stale_lock || return
+    sudo pacman "$@"
+  }
+  alias pacup="sp -Syu"
+  alias cleanup='sudo pacman -Rns $(pacman -Qtdq)'
+fi
+alias bd='bg && disown'
+alias disk='df -B1 --total -x tmpfs -x devtmpfs -x squashfs -x overlay -x efivarfs 2>/dev/null | awk '\''/^total/{printf "Total: %.2f GB\nUsed:  %.2f GB\nFree:  %.2f GB\n", $2/1073741824, $3/1073741824, $4/1073741824}'\'''
+
+bindkey -e
+
+command -v zoxide >/dev/null && eval "$(zoxide init zsh)"
+if command -v fzf >/dev/null; then
+  for __fzf_kb in /usr/share/fzf/key-bindings.zsh /usr/share/doc/fzf/examples/key-bindings.zsh; do
+    [[ -r "$__fzf_kb" ]] && { source "$__fzf_kb"; break; }
+  done
+  for __fzf_comp in /usr/share/fzf/completion.zsh /usr/share/doc/fzf/examples/completion.zsh; do
+    [[ -r "$__fzf_comp" ]] && { source "$__fzf_comp"; break; }
+  done
+  unset __fzf_kb __fzf_comp
+fi
+
+if command -v fzf >/dev/null; then
+  __fzf_files() {
+    if command -v rg >/dev/null; then
+      rg --files --hidden --follow --glob '!.git/*'
+    else
+      find . -path '*/.git/*' -prune -o -type f -print
+    fi
+  }
+
+  __fzf_file_preview='file={}; if command -v bat >/dev/null; then bat --style=numbers --color=always --line-range=:200 -- "$file"; else sed -n "1,200p" -- "$file"; fi'
+
+  fzf-open-nvim() {
+    local selected
+    local -a files
+
+    selected="$(
+      __fzf_files |
+        fzf --multi --height=80% --layout=reverse --border --cycle \
+          --prompt='nvim> ' \
+          --preview="$__fzf_file_preview" \
+          --preview-window='right,60%,border-left'
+    )" || return
+
+    files=("${(f)selected}")
+    (( ${#files[@]} )) || return
+
+    zle -I
+    command nvim -- "${files[@]}"
+    zle reset-prompt
+  }
+  zle -N fzf-open-nvim
+  bindkey '^T' fzf-open-nvim
+
+  fzf-rg-open-nvim() {
+    command -v rg >/dev/null || return
+
+    local selected file line
+
+    selected="$(
+      rg --line-number --column --hidden --smart-case --glob '!.git/*' --color=never '' |
+        fzf --height=80% --layout=reverse --border --cycle \
+          --prompt='rg> ' \
+          --delimiter=':' \
+          --preview='file={1}; line={2}; if command -v bat >/dev/null; then bat --style=numbers --color=always --highlight-line "$line" --line-range "$((line > 8 ? line - 8 : 1)):$((line + 8))" -- "$file"; else sed -n "$((line > 8 ? line - 8 : 1)),$((line + 8))p" -- "$file"; fi' \
+          --preview-window='right,60%,border-left'
+    )" || return
+
+    file="${selected%%:*}"
+    selected="${selected#*:}"
+    line="${selected%%:*}"
+
+    [[ -n "$file" && -n "$line" ]] || return
+
+    zle -I
+    command nvim +"$line" -- "$file"
+    zle reset-prompt
+  }
+  zle -N fzf-rg-open-nvim
+  bindkey '^G' fzf-rg-open-nvim
+fi
+
+ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE='fg=#5f6368'
+[[ -r /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh ]] && source /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh
+
+HISTORY_SUBSTRING_SEARCH_HIGHLIGHT_FOUND='fg=#08090a,bg=#e11d48'
+HISTORY_SUBSTRING_SEARCH_HIGHLIGHT_NOT_FOUND='fg=default,bg=default'
+[[ -r "$HOME/.local/share/zsh/plugins/zsh-history-substring-search/zsh-history-substring-search.zsh" ]] && source "$HOME/.local/share/zsh/plugins/zsh-history-substring-search/zsh-history-substring-search.zsh"
+
+# Up/Down: yazdigin metinle BASLAYAN gecmis girdileri arar (varsayilan)
+autoload -Uz history-search-end
+zle -N history-beginning-search-backward-end history-search-end
+zle -N history-beginning-search-forward-end history-search-end
+bindkey '^[[A' history-beginning-search-backward-end
+bindkey '^[[B' history-beginning-search-forward-end
+bindkey '^[OA' history-beginning-search-backward-end
+bindkey '^[OB' history-beginning-search-forward-end
+
+# Ctrl+Up/Down: yazdigin metni ICEREN gecmis girdileri arar (substring)
+bindkey '^[[1;5A' history-substring-search-up
+bindkey '^[[1;5B' history-substring-search-down
+
+bindkey '^[[1;5D' backward-word
+bindkey '^[[1;5C' forward-word
+bindkey '^[[5D' backward-word
+bindkey '^[[5C' forward-word
+
+# Ctrl+Y copies the command line — needs a Wayland clipboard (wl-copy); WSL/desktop only.
+if command -v wl-copy >/dev/null; then
+  copy-command-line() {
+    print -rn -- "$BUFFER" | wl-copy
+  }
+  zle -N copy-command-line
+  bindkey '^Y' copy-command-line
+fi
+
+POWERLEVEL9K_DISABLE_CONFIGURATION_WIZARD=true
+if [[ -r /usr/share/zsh-theme-powerlevel10k/powerlevel10k.zsh-theme ]]; then
+  source /usr/share/zsh-theme-powerlevel10k/powerlevel10k.zsh-theme
+elif [[ -r "$HOME/.local/share/zsh/plugins/powerlevel10k/powerlevel10k.zsh-theme" ]]; then
+  source "$HOME/.local/share/zsh/plugins/powerlevel10k/powerlevel10k.zsh-theme"
+fi
+[[ -r "$HOME/.config/p10k/p10k.zsh" ]] && source "$HOME/.config/p10k/p10k.zsh"
+
+ZSH_HIGHLIGHT_HIGHLIGHTERS=(main brackets)
+typeset -A ZSH_HIGHLIGHT_STYLES
+ZSH_HIGHLIGHT_STYLES[default]='fg=#d7d7d7'
+ZSH_HIGHLIGHT_STYLES[unknown-token]='fg=#ff5f87,bold'
+ZSH_HIGHLIGHT_STYLES[reserved-word]='fg=#f5a6c8,bold'
+ZSH_HIGHLIGHT_STYLES[alias]='fg=#a6d189'
+ZSH_HIGHLIGHT_STYLES[suffix-alias]='fg=#a6d189'
+ZSH_HIGHLIGHT_STYLES[global-alias]='fg=#a6d189'
+ZSH_HIGHLIGHT_STYLES[builtin]='fg=#a6d189'
+ZSH_HIGHLIGHT_STYLES[function]='fg=#89b4fa'
+ZSH_HIGHLIGHT_STYLES[command]='fg=#a6d189'
+ZSH_HIGHLIGHT_STYLES[precommand]='fg=#f9d56e'
+ZSH_HIGHLIGHT_STYLES[hashed-command]='fg=#a6d189'
+ZSH_HIGHLIGHT_STYLES[single-hyphen-option]='fg=#f9d56e,bold'
+ZSH_HIGHLIGHT_STYLES[double-hyphen-option]='fg=#f9d56e,bold'
+ZSH_HIGHLIGHT_STYLES[path]='fg=#89dceb,underline'
+ZSH_HIGHLIGHT_STYLES[path_prefix]='fg=#5fafd7'
+ZSH_HIGHLIGHT_STYLES[path_approx]='fg=#f9d56e,underline'
+ZSH_HIGHLIGHT_STYLES[globbing]='fg=#f9d56e'
+ZSH_HIGHLIGHT_STYLES[history-expansion]='fg=#f9d56e,bold'
+ZSH_HIGHLIGHT_STYLES[commandseparator]='fg=#e11d48,bold'
+ZSH_HIGHLIGHT_STYLES[redirection]='fg=#89b4fa'
+ZSH_HIGHLIGHT_STYLES[single-quoted-argument]='fg=#f5a6c8'
+ZSH_HIGHLIGHT_STYLES[double-quoted-argument]='fg=#f5a6c8'
+ZSH_HIGHLIGHT_STYLES[dollar-quoted-argument]='fg=#f5a6c8'
+ZSH_HIGHLIGHT_STYLES[back-quoted-argument]='fg=#f5a6c8'
+ZSH_HIGHLIGHT_STYLES[dollar-double-quoted-argument]='fg=#89dceb'
+ZSH_HIGHLIGHT_STYLES[back-double-quoted-argument]='fg=#f5a6c8'
+ZSH_HIGHLIGHT_STYLES[assign]='fg=#89dceb,bold'
+ZSH_HIGHLIGHT_STYLES[named-fd]='fg=#89b4fa'
+ZSH_HIGHLIGHT_STYLES[numeric-fd]='fg=#89b4fa'
+ZSH_HIGHLIGHT_STYLES[arg0]='fg=#a6d189'
+ZSH_HIGHLIGHT_STYLES[bracket-level-1]='fg=#89dceb'
+ZSH_HIGHLIGHT_STYLES[bracket-level-2]='fg=#f9d56e'
+ZSH_HIGHLIGHT_STYLES[bracket-level-3]='fg=#f5a6c8'
+ZSH_HIGHLIGHT_STYLES[bracket-error]='fg=#ff5f87,bold'
+[[ -r /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh ]] && source /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+
+function y() {
+  local tmp="$(mktemp -t "yazi-cwd.XXXXXX")" cwd
+  command yazi "$@" --cwd-file="$tmp"
+  IFS= read -r -d '' cwd < "$tmp"
+  [ "$cwd" != "$PWD" ] && [ -d "$cwd" ] && builtin cd -- "$cwd"
+  command rm -f -- "$tmp"
+}
