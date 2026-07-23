@@ -1,0 +1,92 @@
+local c = require("core.palette")
+
+return {
+  "akinsho/bufferline.nvim",
+  version = "*",
+  event = "VeryLazy",
+  cmd = {
+    "BufferLineCycleNext", "BufferLineCyclePrev", "BufferLineTogglePin",
+    "BufferLineCloseOthers", "BufferLineCloseRight", "BufferLineCloseLeft",
+    "BufferLineGoToBuffer",
+  },
+  dependencies = { "nvim-tree/nvim-web-devicons" },
+  keys = {
+    { "<Tab>",      "<cmd>BufferLineCycleNext<cr>",      desc = "Next buffer" },
+    { "<S-Tab>",    "<cmd>BufferLineCyclePrev<cr>",      desc = "Previous buffer" },
+    { "<leader>bd", "<cmd>bdelete<cr>",                  desc = "Delete buffer" },
+    { "<leader>bx", "<cmd>bdelete<cr>",                  desc = "Delete buffer" },
+    { "<leader>bp", "<cmd>BufferLineTogglePin<cr>",      desc = "Pin buffer" },
+    { "<leader>b1", "<cmd>BufferLineGoToBuffer 1<cr>",   desc = "Go to buffer 1" },
+    { "<leader>b2", "<cmd>BufferLineGoToBuffer 2<cr>",   desc = "Go to buffer 2" },
+    { "<leader>b3", "<cmd>BufferLineGoToBuffer 3<cr>",   desc = "Go to buffer 3" },
+    { "<leader>b4", "<cmd>BufferLineGoToBuffer 4<cr>",   desc = "Go to buffer 4" },
+  },
+  opts = function()
+    return {
+      options = {
+        mode              = "buffers",
+        style_preset      = require("bufferline").style_preset.no_italic,
+        numbers           = "none",
+        close_command     = "bdelete! %d",
+        right_mouse_command = "bdelete! %d",
+        left_mouse_command  = "buffer %d",
+        middle_mouse_command = nil,
+        indicator           = { style = "underline" },
+        buffer_close_icon   = "x",
+        modified_icon       = "*",
+        close_icon          = "x",
+        left_trunc_marker   = "<",
+        right_trunc_marker  = ">",
+        diagnostics         = "nvim_lsp",
+        diagnostics_indicator = function(_, _, d)
+          local parts = {}
+          if d.error   then parts[#parts + 1] = "E:" .. d.error   end
+          if d.warning then parts[#parts + 1] = "W:" .. d.warning end
+          return #parts > 0 and " " .. table.concat(parts, " ") or ""
+        end,
+        offsets = {
+          { filetype = "neo-tree", text = "Files", text_align = "center", separator = false },
+          { filetype = "oil",      text = "Oil",   text_align = "center", separator = false },
+        },
+        separator_style         = "thin",
+        always_show_bufferline  = true,
+        show_buffer_close_icons = true,
+        show_close_icon         = false,
+        color_icons             = true,
+      },
+      highlights = {
+        fill                    = { fg = c.muted,      bg = "NONE" },
+        background              = { fg = c.subtle,     bg = "NONE" },
+        buffer_visible          = { fg = c.fg,         bg = "NONE" },
+        buffer_selected         = { fg = c.fg,         bg = c.surface, bold = true },
+        indicator_selected      = { fg = c.accent,     bg = c.surface },
+        tab                     = { fg = c.subtle,     bg = "NONE" },
+        tab_selected            = { fg = c.fg,         bg = c.surface },
+        tab_separator           = { fg = c.surface,    bg = "NONE" },
+        tab_separator_selected  = { fg = c.accent,     bg = c.surface },
+        close_button            = { fg = c.muted,      bg = "NONE" },
+        close_button_visible    = { fg = c.subtle,     bg = "NONE" },
+        close_button_selected   = { fg = c.accent_alt, bg = c.surface },
+        modified                = { fg = c.yellow,     bg = "NONE" },
+        modified_visible        = { fg = c.yellow,     bg = "NONE" },
+        modified_selected       = { fg = c.yellow,     bg = c.surface },
+        duplicate               = { fg = c.muted,      bg = "NONE" },
+        duplicate_visible       = { fg = c.subtle,     bg = "NONE" },
+        duplicate_selected      = { fg = c.fg,         bg = c.surface },
+        separator               = { fg = c.surface,    bg = "NONE" },
+        separator_visible       = { fg = c.surface,    bg = "NONE" },
+        separator_selected      = { fg = c.bg,         bg = c.surface },
+        diagnostic              = { fg = c.subtle,     bg = "NONE" },
+        diagnostic_visible      = { fg = c.fg,         bg = "NONE" },
+        diagnostic_selected     = { fg = c.fg,         bg = c.surface },
+        error                   = { fg = c.accent_alt, bg = "NONE" },
+        error_visible           = { fg = c.accent_alt, bg = "NONE" },
+        error_selected          = { fg = c.accent_alt, bg = c.surface, bold = true },
+        warning                 = { fg = c.yellow,     bg = "NONE" },
+        warning_visible         = { fg = c.yellow,     bg = "NONE" },
+        warning_selected        = { fg = c.yellow,     bg = c.surface, bold = true },
+        offset_separator        = { fg = c.surface,    bg = "NONE" },
+      },
+    }
+  end,
+}
